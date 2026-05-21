@@ -59,6 +59,12 @@ For full resources on this package, see the [wiki](../..//wiki).
 
 Authorization code exchange, session-token exchange, and `refresh_token` grants are handled inside this package (`Osiset\ShopifyApp\Services\ApiHelper` and `OfflineAccessTokenRefresher`), not via `gnikyt/basic-shopify-api` updates. A valid access token is refreshed automatically before `apiHelper()` builds the API session when the offline token is expired or within the configured skew.
 
+**Migrating existing installs (optional):** Shops that already have a non-expiring offline token are not upgraded automatically when you enable the flag. To migrate without merchant re-auth, use Shopify [Step 4: token exchange](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/offline-access-tokens#step-4-migrate-existing-tokens):
+
+- **API:** `ApiHelper::exchangeNonExpiringOfflineTokenForExpiring($shopDomain, $currentOfflineToken)` then persist with `ShopCommand::setAccessToken` (or use the action below).
+- **Action:** `MigrateShopToExpiringOfflineAccessToken` — call per shop from your own job or on next app launch; returns `migrated`, `skipped`, `reason`, and `error` keys.
+- **CLI (optional):** `php artisan shopify-app:migrate-expiring-offline-tokens` (`--dry-run`, `--shop=example.myshopify.com`). Migration is **one-way**: Shopify revokes the old token on success.
+
 If your `User` model overrides `$casts`, merge `datetime` casts for the two `*_expires_at` columns (the `ShopModel` trait uses `mergeCasts` when `initializeShopModel` runs).
 
 Longer term, consider replacing or forking `gnikyt/basic-shopify-api` for REST/Graph traffic if you need an actively maintained HTTP client; expiring offline OAuth is already decoupled from that dependency.

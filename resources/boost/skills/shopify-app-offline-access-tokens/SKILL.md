@@ -29,6 +29,16 @@ If you override `$casts` on **your** shop model, merge with the package trait’
 - Token refresh is coordinated through `ApiHelper` and `OfflineAccessTokenRefresher` in the package — you normally do not call these directly from app code; ensure shops use `apiHelper()` (or equivalent documented entry points) so refresh runs when needed.
 - Refresh failures throw `Osiset\ShopifyApp\Exceptions\OAuthTokenRefreshException` — handle or log in **your** exception reporting so ops can re-authenticate affected shops.
 
+## Migrating existing shops (optional)
+
+Enabling the flag does **not** upgrade shops that only have a legacy non-expiring token. Use one of:
+
+- **`Osiset\ShopifyApp\Actions\MigrateShopToExpiringOfflineAccessToken`** — invoke per shop from your job or middleware; inspect `migrated`, `skipped`, `reason`, `error` in the returned array.
+- **`ApiHelper::exchangeNonExpiringOfflineTokenForExpiring($shopDomain, $currentToken)`** — [Shopify Step 4](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/offline-access-tokens#step-4-migrate-existing-tokens) token exchange; then persist via `ShopCommand::setAccessToken` with refresh + expiry fields.
+- **`php artisan shopify-app:migrate-expiring-offline-tokens`** — optional package CLI (`--dry-run`, `--shop=`). Success revokes the old offline token (one-way).
+
+Alternative: merchant re-auth (OAuth or session token exchange) also acquires expiring tokens when the flag is on.
+
 ## Operational notes
 
 - Keep **`APP_KEY` stable** in each environment; encrypted column values depend on it.
