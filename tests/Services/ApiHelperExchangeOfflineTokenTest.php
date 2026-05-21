@@ -2,7 +2,6 @@
 
 namespace Osiset\ShopifyApp\Test\Services;
 
-use Gnikyt\BasicShopifyAPI\Session;
 use Osiset\ShopifyApp\Contracts\ApiHelper as IApiHelper;
 use Osiset\ShopifyApp\Test\Stubs\Api as ApiStub;
 use Osiset\ShopifyApp\Test\TestCase;
