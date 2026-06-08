@@ -140,6 +140,7 @@ class ShopifyAppProvider extends ServiceProvider
             return new InstallShopAction(
                 $app->make(IShopQuery::class),
                 $app->make(IShopCommand::class),
+                $app->make(IApiHelper::class),
                 $app->make(VerifyThemeSupportAction::class)
             );
         });

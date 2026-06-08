@@ -4,6 +4,7 @@ namespace Osiset\ShopifyApp\Actions;
 
 use Exception;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Osiset\ShopifyApp\Contracts\ApiHelper as IApiHelper;
 use Osiset\ShopifyApp\Contracts\Commands\Shop as IShopCommand;
 use Osiset\ShopifyApp\Contracts\Queries\Shop as IShopQuery;
@@ -61,31 +62,67 @@ class MigrateShopToExpiringOfflineAccessToken
             return $this->result(skipped: true, reason: self::REASON_NO_OFFLINE_TOKEN, shopId: $shop->getId()->toNative());
         }
 
-        try {
-            $data = $this->apiHelper->exchangeNonExpiringOfflineTokenForExpiring(
-                $shop->getDomain()->toNative(),
-                $shop->getAccessToken()->toNative()
-            );
+        $result = [
+            'migrated' => false,
+            'skipped' => false,
+            'reason' => null,
+            'shop_id' => $shop->getId()->toNative(),
+            'error' => null,
+        ];
 
-            if (! isset($data['refresh_token'], $data['access_token'], $data['expires_in'], $data['refresh_token_expires_in'])) {
-                return $this->result(
-                    shopId: $shop->getId()->toNative(),
-                    error: 'Invalid token exchange response from Shopify.'
+        Cache::lock('shopify-offline-migrate:'.$shop->getId()->toNative(), 30)->block(10, function () use ($shop, &$result) {
+            $shop->refresh();
+
+            if ($shop->hasExpiringOfflineAccess()) {
+                $result = $this->result(
+                    skipped: true,
+                    reason: self::REASON_ALREADY_EXPIRING,
+                    shopId: $shop->getId()->toNative()
                 );
+
+                return;
             }
 
-            $this->shopCommand->setAccessToken(
-                $shop->getId(),
-                AccessToken::fromNative($data['access_token']),
-                $data['refresh_token'],
-                Carbon::now()->addSeconds((int) $data['expires_in']),
-                Carbon::now()->addSeconds((int) $data['refresh_token_expires_in'])
-            );
+            if (! $shop->hasOfflineAccess()) {
+                $result = $this->result(
+                    skipped: true,
+                    reason: self::REASON_NO_OFFLINE_TOKEN,
+                    shopId: $shop->getId()->toNative()
+                );
 
-            return $this->result(migrated: true, shopId: $shop->getId()->toNative());
-        } catch (Exception $e) {
-            return $this->result(shopId: $shop->getId()->toNative(), error: $e->getMessage());
-        }
+                return;
+            }
+
+            try {
+                $data = $this->apiHelper->exchangeNonExpiringOfflineTokenForExpiring(
+                    $shop->getDomain()->toNative(),
+                    $shop->getAccessToken()->toNative()
+                );
+
+                if (! isset($data['refresh_token'], $data['access_token'], $data['expires_in'], $data['refresh_token_expires_in'])) {
+                    $result = $this->result(
+                        shopId: $shop->getId()->toNative(),
+                        error: 'Invalid token exchange response from Shopify.'
+                    );
+
+                    return;
+                }
+
+                $this->shopCommand->setAccessToken(
+                    $shop->getId(),
+                    AccessToken::fromNative($data['access_token']),
+                    $data['refresh_token'],
+                    Carbon::now()->addSeconds((int) $data['expires_in']),
+                    Carbon::now()->addSeconds((int) $data['refresh_token_expires_in'])
+                );
+
+                $result = $this->result(migrated: true, shopId: $shop->getId()->toNative());
+            } catch (Exception $e) {
+                $result = $this->result(shopId: $shop->getId()->toNative(), error: $e->getMessage());
+            }
+        });
+
+        return $result;
     }
 
     /**

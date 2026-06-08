@@ -7,6 +7,8 @@ use Gnikyt\BasicShopifyAPI\Session;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Log;
+use Osiset\ShopifyApp\Actions\MigrateShopToExpiringOfflineAccessToken;
 use Osiset\ShopifyApp\Contracts\ApiHelper as IApiHelper;
 use Osiset\ShopifyApp\Contracts\Objects\Values\AccessToken as AccessTokenValue;
 use Osiset\ShopifyApp\Contracts\Objects\Values\ShopDomain as ShopDomainValue;
@@ -178,6 +180,22 @@ trait ShopModel
     public function apiHelper(): IApiHelper
     {
         if ($this->apiHelper === null) {
+            if (Util::getShopifyConfig('auto_migrate_legacy', $this)
+                && Util::getShopifyConfig('expiring_offline_tokens', $this)
+                && ! $this->hasExpiringOfflineAccess()
+                && $this->hasOfflineAccess()
+            ) {
+                try {
+                    app(MigrateShopToExpiringOfflineAccessToken::class)($this);
+                    $this->refresh();
+                } catch (\Throwable $e) {
+                    Log::warning('On-the-fly Shopify offline token migration failed.', [
+                        'shop' => $this->getDomain()->toNative(),
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             app(OfflineAccessTokenRefresher::class)->refreshIfNeeded($this);
 
             // Set the session

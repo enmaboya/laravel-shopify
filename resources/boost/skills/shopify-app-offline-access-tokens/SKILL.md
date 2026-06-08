@@ -10,6 +10,7 @@ You are enabling or operating **Shopify expiring offline access tokens** in **yo
 ## Configuration (your published `shopify-app.php`)
 
 - `SHOPIFY_EXPIRING_OFFLINE_TOKENS` → `expiring_offline_tokens` — when `true`, new offline exchanges use refresh-token rotation per Shopify’s model.
+- `SHOPIFY_AUTO_MIGRATE_LEGACY` → `auto_migrate_legacy` — when `true` (default), legacy shops are migrated on-the-fly before the first `apiHelper()` call; failures fail open (logged warning, legacy token kept).
 - `SHOPIFY_OFFLINE_ACCESS_TOKEN_REFRESH_SKEW` → `offline_access_token_refresh_skew_seconds` — refresh this many seconds **before** access token expiry.
 
 Read the package README for policy notes (e.g. public apps after Shopify’s cutoff dates).
@@ -33,9 +34,11 @@ If you override `$casts` on **your** shop model, merge with the package trait’
 
 Enabling the flag does **not** upgrade shops that only have a legacy non-expiring token. Use one of:
 
-- **`Osiset\ShopifyApp\Actions\MigrateShopToExpiringOfflineAccessToken`** — invoke per shop from your job or middleware; inspect `migrated`, `skipped`, `reason`, `error` in the returned array.
+- **Passive (default):** `auto_migrate_legacy` — first `apiHelper()` call runs Step 4 exchange; failures are logged and the legacy token is used (no downtime).
+- **`Osiset\ShopifyApp\Messaging\Jobs\MigrateShopTokenJob`** — dispatched by the Artisan command or your own scheduler; one shop per job.
+- **`Osiset\ShopifyApp\Actions\MigrateShopToExpiringOfflineAccessToken`** — invoke per shop from your code; inspect `migrated`, `skipped`, `reason`, `error` in the returned array.
 - **`ApiHelper::exchangeNonExpiringOfflineTokenForExpiring($shopDomain, $currentToken)`** — [Shopify Step 4](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/offline-access-tokens#step-4-migrate-existing-tokens) token exchange; then persist via `ShopCommand::setAccessToken` with refresh + expiry fields.
-- **`php artisan shopify-app:migrate-expiring-offline-tokens`** — optional package CLI (`--dry-run`, `--shop=`). Success revokes the old offline token (one-way).
+- **`php artisan shopify-app:migrate-expiring-offline-tokens`** — optional CLI (`--dry-run`, `--shop=`). Chunks shops and dispatches queue jobs (Vapor/serverless-safe). Success revokes the old offline token (one-way).
 
 Alternative: merchant re-auth (OAuth or session token exchange) also acquires expiring tokens when the flag is on.
 

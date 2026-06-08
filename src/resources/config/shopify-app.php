@@ -226,6 +226,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Auto-migrate legacy offline tokens
+    |--------------------------------------------------------------------------
+    |
+    | When true (and expiring_offline_tokens is enabled), shops with a legacy
+    | non-expiring offline token are migrated to expiring tokens on-the-fly
+    | before the first API call via apiHelper(). Failures are logged and the
+    | request continues with the legacy token. Disable to require explicit
+    | migration via the Artisan command or MigrateShopToExpiringOfflineAccessToken.
+    |
+    */
+
+    'auto_migrate_legacy' => (bool) env('SHOPIFY_AUTO_MIGRATE_LEGACY', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Offline access token refresh skew (seconds)
     |--------------------------------------------------------------------------
     |

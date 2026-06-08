@@ -54,16 +54,19 @@ For full resources on this package, see the [wiki](../..//wiki).
 [Shopify requires expiring offline access tokens](https://shopify.dev/changelog/expiring-offline-access-tokens-required-for-public-apps-april-1-2026) for **new public apps** created on or after April 1, 2026. This package supports them when enabled:
 
 1. Run package migrations so your shops table includes `shopify_offline_refresh_token`, `shopify_offline_access_token_expires_at`, and `shopify_offline_refresh_token_expires_at`.
-2. Set `SHOPIFY_EXPIRING_OFFLINE_TOKENS=true` in `.env` (see `expiring_offline_tokens` and `offline_access_token_refresh_skew_seconds` in `config/shopify-app.php`).
+2. Set `SHOPIFY_EXPIRING_OFFLINE_TOKENS=true` in `.env` (see `expiring_offline_tokens`, `auto_migrate_legacy`, and `offline_access_token_refresh_skew_seconds` in `config/shopify-app.php`).
 3. Keep `APP_KEY` stable: refresh tokens are stored encrypted with Laravel’s encrypter.
 
 Authorization code exchange, session-token exchange, and `refresh_token` grants are handled inside this package (`Osiset\ShopifyApp\Services\ApiHelper` and `OfflineAccessTokenRefresher`), not via `gnikyt/basic-shopify-api` updates. A valid access token is refreshed automatically before `apiHelper()` builds the API session when the offline token is expired or within the configured skew.
 
-**Migrating existing installs (optional):** Shops that already have a non-expiring offline token are not upgraded automatically when you enable the flag. To migrate without merchant re-auth, use Shopify [Step 4: token exchange](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/offline-access-tokens#step-4-migrate-existing-tokens):
+**Migrating existing installs (optional):** Shops that already have a non-expiring offline token are not upgraded automatically when you enable the flag alone. Options:
 
-- **API:** `ApiHelper::exchangeNonExpiringOfflineTokenForExpiring($shopDomain, $currentOfflineToken)` then persist with `ShopCommand::setAccessToken` (or use the action below).
-- **Action:** `MigrateShopToExpiringOfflineAccessToken` — call per shop from your own job or on next app launch; returns `migrated`, `skipped`, `reason`, and `error` keys.
-- **CLI (optional):** `php artisan shopify-app:migrate-expiring-offline-tokens` (`--dry-run`, `--shop=example.myshopify.com`). Migration is **one-way**: Shopify revokes the old token on success.
+- **Passive (default):** With `SHOPIFY_AUTO_MIGRATE_LEGACY=true` (default), the first `apiHelper()` call for a legacy shop runs Shopify [Step 4](https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/offline-access-tokens#step-4-migrate-existing-tokens) token exchange synchronously. Failures are logged and the request continues with the legacy token (fail-open).
+- **Batch CLI (serverless-safe):** `php artisan shopify-app:migrate-expiring-offline-tokens` (`--dry-run`, `--shop=example.myshopify.com`) chunks matching shops and dispatches `MigrateShopTokenJob` to the queue — no HTTP in the command itself (suitable for Laravel Vapor).
+- **Action:** `MigrateShopToExpiringOfflineAccessToken` — call per shop from your own code; returns `migrated`, `skipped`, `reason`, and `error` keys.
+- **API:** `ApiHelper::exchangeNonExpiringOfflineTokenForExpiring($shopDomain, $currentOfflineToken)` then persist with `ShopCommand::setAccessToken`.
+
+Migration is **one-way**: Shopify revokes the old token on successful exchange.
 
 If your `User` model overrides `$casts`, merge `datetime` casts for the two `*_expires_at` columns (the `ShopModel` trait uses `mergeCasts` when `initializeShopModel` runs).
 
