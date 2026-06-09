@@ -68,6 +68,22 @@ Authorization code exchange, session-token exchange, and `refresh_token` grants 
 
 Migration is **one-way**: Shopify revokes the old token on successful exchange.
 
+**Long-running jobs:** Token refresh runs when the API client is first built (`$shop->api()` / `$shop->apiHelper()`). If a job reuses the same shop model for hours, the cached client keeps the old access token even after expiry. Options:
+
+- **Opt-in config:** `SHOPIFY_REFRESH_OFFLINE_TOKEN_BEFORE_API_CALL=true` re-checks expiry before each `api()` / `apiHelper()` call and rebuilds the client when needed.
+- **Manual helpers on your shop model:**
+  - `$shop->offlineAccessTokenIsFresh()` — `true` when the token is outside the refresh skew window
+  - `$shop->refreshOfflineAccessTokenIfNeeded()` — refreshes via Shopify and clears the cached client
+  - `$shop->resetApiClient()` — clears the cached client so the next API call rebuilds it
+
+```php
+// Per loop iteration in a bulk job
+if (! $shop->offlineAccessTokenIsFresh()) {
+    $shop->refreshOfflineAccessTokenIfNeeded();
+}
+$shop->api()->graph('...');
+```
+
 If your `User` model overrides `$casts`, merge `datetime` casts for the two `*_expires_at` columns (the `ShopModel` trait uses `mergeCasts` when `initializeShopModel` runs).
 
 Longer term, consider replacing or forking `gnikyt/basic-shopify-api` for REST/Graph traffic if you need an actively maintained HTTP client; expiring offline OAuth is already decoupled from that dependency.

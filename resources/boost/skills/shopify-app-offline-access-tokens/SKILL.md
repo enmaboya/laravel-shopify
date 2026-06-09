@@ -11,6 +11,7 @@ You are enabling or operating **Shopify expiring offline access tokens** in **yo
 
 - `SHOPIFY_EXPIRING_OFFLINE_TOKENS` → `expiring_offline_tokens` — when `true`, new offline exchanges use refresh-token rotation per Shopify’s model.
 - `SHOPIFY_AUTO_MIGRATE_LEGACY` → `auto_migrate_legacy` — when `true` (default), legacy shops are migrated on-the-fly before the first `apiHelper()` call; failures fail open (logged warning, legacy token kept).
+- `SHOPIFY_REFRESH_OFFLINE_TOKEN_BEFORE_API_CALL` → `refresh_offline_token_before_api_call` — when `true`, each `api()` / `apiHelper()` call re-checks token expiry and rebuilds the cached client if within the refresh skew (for long-running jobs).
 - `SHOPIFY_OFFLINE_ACCESS_TOKEN_REFRESH_SKEW` → `offline_access_token_refresh_skew_seconds` — refresh this many seconds **before** access token expiry.
 
 Read the package README for policy notes (e.g. public apps after Shopify’s cutoff dates).
@@ -28,6 +29,8 @@ If you override `$casts` on **your** shop model, merge with the package trait’
 ## Runtime behavior (reference)
 
 - Token refresh is coordinated through `ApiHelper` and `OfflineAccessTokenRefresher` in the package — you normally do not call these directly from app code; ensure shops use `apiHelper()` (or equivalent documented entry points) so refresh runs when needed.
+- The API client is **memoized** on the shop model. Long-running jobs that reuse one instance across token expiry must either enable `refresh_offline_token_before_api_call` or call `$shop->refreshOfflineAccessTokenIfNeeded()` / `$shop->resetApiClient()` before subsequent API calls.
+- Shop helpers: `offlineAccessTokenIsFresh()`, `refreshOfflineAccessTokenIfNeeded()`, `resetApiClient()`.
 - Refresh failures throw `Osiset\ShopifyApp\Exceptions\OAuthTokenRefreshException` — handle or log in **your** exception reporting so ops can re-authenticate affected shops.
 
 ## Migrating existing shops (optional)

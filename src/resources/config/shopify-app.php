@@ -252,6 +252,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Refresh offline token before each API call
+    |--------------------------------------------------------------------------
+    |
+    | When true, each shop->api() / apiHelper() call checks whether the offline
+    | access token is within the refresh skew window. If so, the cached API
+    | client is discarded and rebuilt with a fresh token. Useful for long-running
+    | queue jobs that reuse the same shop model instance across token expiry.
+    |
+    */
+
+    'refresh_offline_token_before_api_call' => (bool) env('SHOPIFY_REFRESH_OFFLINE_TOKEN_BEFORE_API_CALL', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Shopify API Redirect
     |--------------------------------------------------------------------------
     |
