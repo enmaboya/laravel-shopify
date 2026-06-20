@@ -81,6 +81,27 @@ interface ShopModel extends Authenticatable
     public function hasExpiringOfflineAccess(): bool;
 
     /**
+     * Whether the offline access token is still valid (outside the refresh skew window).
+     *
+     * @return bool
+     */
+    public function offlineAccessTokenIsFresh(): bool;
+
+    /**
+     * Refresh the offline access token if needed and discard the cached API client.
+     *
+     * @return void
+     */
+    public function refreshOfflineAccessTokenIfNeeded(): void;
+
+    /**
+     * Discard the cached API client so the next api()/apiHelper() call rebuilds it.
+     *
+     * @return void
+     */
+    public function resetApiClient(): void;
+
+    /**
      * Get the API helper instance for a shop.
      * TODO: Find a better way than using resolve(). However, we can't inject in model constructors.
      *
