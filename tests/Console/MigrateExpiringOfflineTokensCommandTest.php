@@ -5,6 +5,7 @@ namespace Osiset\ShopifyApp\Test\Console;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Queue;
 use Osiset\ShopifyApp\Messaging\Jobs\MigrateShopTokenJob;
+use Osiset\ShopifyApp\Test\Stubs\Api as ApiStub;
 use Osiset\ShopifyApp\Test\TestCase;
 
 class MigrateExpiringOfflineTokensCommandTest extends TestCase
@@ -111,5 +112,42 @@ class MigrateExpiringOfflineTokensCommandTest extends TestCase
             ->assertExitCode(0);
 
         Queue::assertNothingPushed();
+    }
+
+    /**
+     * Confirms the fix: the command continues processing remaining shops even when one fails,
+     * surfacing a warning for the failing shop and migrating all others.
+     *
+     * This test fails BEFORE the fix and passes once the fix is applied.
+     */
+    public function testCommandContinuesAfterOneShopFails(): void
+    {
+        $this->app['config']->set('shopify-app.expiring_offline_tokens', true);
+        $this->app['config']->set('queue.default', 'sync');
+
+        $shopFailing = factory($this->model)->create([
+            'password' => 'shpat_stale_token',
+            'shopify_offline_refresh_token' => null,
+        ]);
+        $shopSucceeding = factory($this->model)->create([
+            'password' => 'shpat_valid_token',
+            'shopify_offline_refresh_token' => null,
+        ]);
+
+        $this->setApiStub();
+        ApiStub::stubResponses(['oauth_access_token_invalid_subject_token', 'access_token_expiring']);
+
+        $this->artisan('shopify-app:migrate-expiring-offline-tokens')
+            ->expectsOutputToContain($shopFailing->name)
+            ->expectsOutput('Dispatched 1 migration job(s). 1 shop(s) failed and were skipped.')
+            ->assertExitCode(0);
+
+        // Failing shop: token unchanged
+        $shopFailing->refresh();
+        $this->assertNull($shopFailing->shopify_offline_refresh_token);
+
+        // Succeeding shop: fully migrated
+        $shopSucceeding->refresh();
+        $this->assertNotNull($shopSucceeding->shopify_offline_refresh_token);
     }
 }

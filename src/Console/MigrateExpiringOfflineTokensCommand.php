@@ -56,21 +56,27 @@ class MigrateExpiringOfflineTokensCommand extends Command
         }
 
         $dispatched = 0;
+        $failed = 0;
 
-        $query->chunk(100, function ($shops) use (&$dispatched) {
+        $query->chunk(100, function ($shops) use (&$dispatched, &$failed) {
             foreach ($shops as $shop) {
-                MigrateShopTokenJob::dispatch($shop);
-                $dispatched++;
+                try {
+                    MigrateShopTokenJob::dispatch($shop);
+                    $dispatched++;
+                } catch (\Throwable $e) {
+                    $this->warn("  [FAILED] {$shop->name}: {$e->getMessage()}");
+                    $failed++;
+                }
             }
         });
 
-        if ($dispatched === 0) {
+        if ($dispatched === 0 && $failed === 0) {
             $this->info('No shops need migration.');
 
             return self::SUCCESS;
         }
 
-        $this->info("Dispatched {$dispatched} migration job(s).");
+        $this->info("Dispatched {$dispatched} migration job(s).".($failed > 0 ? " {$failed} shop(s) failed and were skipped." : ''));
 
         return self::SUCCESS;
     }
