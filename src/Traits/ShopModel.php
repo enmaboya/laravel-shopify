@@ -7,6 +7,7 @@ use Gnikyt\BasicShopifyAPI\Session;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Osiset\ShopifyApp\Actions\MigrateShopToExpiringOfflineAccessToken;
 use Osiset\ShopifyApp\Contracts\ApiHelper as IApiHelper;
@@ -156,6 +157,20 @@ trait ShopModel
     public function hasExpiringOfflineAccess(): bool
     {
         return ! empty($this->shopify_offline_refresh_token);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function hasCorruptExpiringTokenState(): bool
+    {
+        if (! Util::getShopifyConfig('expiring_offline_tokens', $this)) {
+            return false;
+        }
+
+        return ! empty($this->shopify_offline_access_token_expires_at)
+            && empty($this->shopify_offline_refresh_token)
+            && Carbon::now()->greaterThan($this->shopify_offline_access_token_expires_at);
     }
 
     /**

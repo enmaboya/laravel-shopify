@@ -81,6 +81,14 @@ interface ShopModel extends Authenticatable
     public function hasExpiringOfflineAccess(): bool;
 
     /**
+     * Whether the shop is in an unrecoverable corrupt expiring-token state: the refresh token
+     * has been removed but the access token has also expired, making re-authentication required.
+     *
+     * @return bool
+     */
+    public function hasCorruptExpiringTokenState(): bool;
+
+    /**
      * Whether the offline access token is still valid (outside the refresh skew window).
      *
      * @return bool
