@@ -513,7 +513,7 @@ class VerifyShopify
     {
         $shop = $this->shopQuery->getByDomain(ShopDomain::fromRequest($request), [], true);
 
-        return $shop && $shop->password && ! $shop->trashed();
+        return $shop && $shop->password && ! $shop->trashed() && ! $shop->hasCorruptExpiringTokenState();
     }
 
     /**
@@ -527,7 +527,7 @@ class VerifyShopify
     {
         $shop = $this->shopQuery->getByDomain(ShopDomain::fromRequest($request), [], true);
 
-        return $shop && $shop->password && ! $shop->trashed() ? $shop : null;
+        return $shop && $shop->password && ! $shop->trashed() && ! $shop->hasCorruptExpiringTokenState() ? $shop : null;
     }
 
     /**
