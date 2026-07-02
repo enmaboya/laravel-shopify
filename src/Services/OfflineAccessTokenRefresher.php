@@ -43,14 +43,14 @@ class OfflineAccessTokenRefresher
             return;
         }
 
-        if (! $this->accessTokenNeedsRefresh($shop)) {
+        if (! $this->offlineAccessTokenNeedsRefresh($shop)) {
             return;
         }
 
         Cache::lock('shopify-offline-token:'.$shop->getId()->toNative(), 30)->block(10, function () use ($shop) {
             $shop->refresh();
 
-            if (! $this->accessTokenNeedsRefresh($shop)) {
+            if (! $this->offlineAccessTokenNeedsRefresh($shop)) {
                 return;
             }
 
@@ -96,8 +96,23 @@ class OfflineAccessTokenRefresher
         });
     }
 
-    protected function accessTokenNeedsRefresh(ShopModel $shop): bool
+    /**
+     * Whether the shop's offline access token is expired or within the refresh skew window.
+     *
+     * @param ShopModel $shop
+     *
+     * @return bool
+     */
+    public function offlineAccessTokenNeedsRefresh(ShopModel $shop): bool
     {
+        if (! Util::getShopifyConfig('expiring_offline_tokens', $shop)) {
+            return false;
+        }
+
+        if (! $shop->hasExpiringOfflineAccess()) {
+            return false;
+        }
+
         $expiresAt = $shop->shopify_offline_access_token_expires_at ?? null;
         if ($expiresAt === null) {
             return false;

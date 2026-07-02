@@ -3,6 +3,7 @@
 namespace Osiset\ShopifyApp\Test\Http\Middleware;
 
 use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Route;
 use Osiset\ShopifyApp\Exceptions\HttpException;
@@ -351,6 +352,38 @@ class VerifyShopifyTest extends TestCase
         // Run the middleware
         $result = $this->runMiddleware(VerifyShopify::class, $newRequest);
         $this->assertTrue($result[0]);
+    }
+
+    public function testCorruptExpiringTokenStateTriggersInstallRedirect(): void
+    {
+        $this->app['config']->set('shopify-app.expiring_offline_tokens', true);
+
+        // Shop with corrupt state: password present but refresh token deleted and access token expired
+        factory($this->model)->create([
+            'name' => 'shop-name.myshopify.com',
+            'password' => 'shpat_expired_token',
+            'shopify_offline_refresh_token' => null,
+            'shopify_offline_access_token_expires_at' => Carbon::now()->subHours(2),
+        ]);
+
+        $currentRequest = Request::instance();
+        $newRequest = $currentRequest->duplicate(
+            ['shop' => 'shop-name.myshopify.com'],
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+
+        $result = $this->runMiddleware(VerifyShopify::class, $newRequest);
+
+        // Request must not pass through to the app
+        $this->assertFalse($result[0]);
+
+        // Should redirect to the install/OAuth route, not just to fetch a new App Bridge session token
+        $this->assertStringContainsString('/authenticate', $result[1]->getTargetUrl());
+        $this->assertStringNotContainsString('/authenticate/token', $result[1]->getTargetUrl());
     }
 
     public function testAccessingForbiddenMiddlewareRouteFromBrowserReceivedAccessError(): void
