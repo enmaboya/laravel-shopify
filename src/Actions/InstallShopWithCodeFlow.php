@@ -10,24 +10,21 @@ use Osiset\ShopifyApp\Contracts\Commands\Shop as IShopCommand;
 use Osiset\ShopifyApp\Contracts\Queries\Shop as IShopQuery;
 use Osiset\ShopifyApp\Contracts\ShopModel as IShopModel;
 use Osiset\ShopifyApp\Objects\Enums\AuthMode;
-use Osiset\ShopifyApp\Objects\Enums\ThemeSupportLevel as ThemeSupportLevelEnum;
 use Osiset\ShopifyApp\Objects\Values\AccessToken;
 use Osiset\ShopifyApp\Objects\Values\NullAccessToken;
 use Osiset\ShopifyApp\Objects\Values\ShopDomain;
-use Osiset\ShopifyApp\Objects\Values\ThemeSupportLevel;
 use Osiset\ShopifyApp\Util;
 
-class InstallShop
+class InstallShopWithCodeFlow
 {
     public function __construct(
         protected IShopQuery $shopQuery,
         protected IShopCommand $shopCommand,
-        protected IApiHelper $apiHelper,
-        protected VerifyThemeSupport $verifyThemeSupport
+        protected IApiHelper $apiHelper
     ) {
     }
 
-    public function __invoke(ShopDomain $shopDomain, ?string $code = null, ?string $idToken = null): array
+    public function handle(ShopDomain $shopDomain, ?string $code): array
     {
         $shop = $this->shopQuery->getByDomain($shopDomain, [], true);
 
@@ -44,7 +41,7 @@ class InstallShop
             ? AuthMode::fromNative(Util::getShopifyConfig('api_grant_mode', $shop))
             : AuthMode::OFFLINE();
 
-        if (empty($code) && empty($idToken)) {
+        if (empty($code)) {
             return [
                 'completed' => false,
                 'url' => $apiHelper->buildAuthUrl($grantMode, Util::getShopifyConfig('api_scopes', $shop)),
@@ -57,32 +54,19 @@ class InstallShop
                 $shop->restore();
             }
 
-            // Get the data and set the access token
-            $data = $idToken !== null
-                ? $apiHelper->performOfflineTokenExchange($idToken)
-                : $apiHelper->getAccessData($code, $grantMode);
+            $data = $apiHelper->getAccessData($code, $grantMode);
             $this->persistShopifyOAuthTokens($shop, $data, $grantMode);
-
-            try {
-                $themeSupportLevel = call_user_func($this->verifyThemeSupport, $shop->getId());
-                $this->shopCommand->setThemeSupportLevel($shop->getId(), ThemeSupportLevel::fromNative($themeSupportLevel));
-            } catch (Exception $e) {
-                $themeSupportLevel = ThemeSupportLevelEnum::NONE;
-            }
-
 
             return [
                 'completed' => true,
                 'url' => null,
                 'shop_id' => $shop->getId(),
-                'theme_support_level' => $themeSupportLevel,
             ];
         } catch (Exception $e) {
             return [
                 'completed' => false,
                 'url' => null,
                 'shop_id' => null,
-                'theme_support_level' => null,
             ];
         }
     }
