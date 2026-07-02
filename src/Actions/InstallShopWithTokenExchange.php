@@ -29,6 +29,14 @@ class InstallShopWithTokenExchange
             $shop = $this->shopQuery->getByDomain($shopDomain);
         }
 
+        if ($idToken === null && ! $shop->hasOfflineAccess()) {
+            return [
+                'completed' => false,
+                'url' => null,
+                'shop_id' => $shop->getId(),
+            ];
+        }
+
         try {
             if ($shop->trashed()) {
                 $shop->restore();

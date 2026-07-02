@@ -110,10 +110,10 @@ class VerifyShopify
                 $shop = $this->shopQuery->getByDomain($domain, [], true);
 
                 if (! $shop || $shop->trashed()) {
-                    if ($request->missing('id_token')) {
+                    if (! $this->isApiRequest($request) && $request->missing('id_token')) {
                         $apiKey = Util::getShopifyConfig('api_key');
 
-                        return Redirect::to("https://{$domain}/admin/oauth/install?client_id={$apiKey}");
+                        return Redirect::to("https://{$domain->toNative()}/admin/oauth/install?client_id={$apiKey}");
                     }
 
                     return $this->handleInvalidShop($request);

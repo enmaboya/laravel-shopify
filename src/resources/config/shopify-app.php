@@ -669,5 +669,5 @@ return [
     | token, used for Shopify managed installation.
     |
     */
-    'auth_strategy' => AuthStrategy::AUTH_CODE_FLOW,
+    'auth_strategy' => AuthStrategy::TOKEN_EXCHANGE,
 ];
