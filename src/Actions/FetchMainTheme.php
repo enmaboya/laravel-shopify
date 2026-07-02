@@ -23,12 +23,12 @@ final class FetchMainTheme
             }
         }');
 
-        if (blank(data_get($response['body']->toArray(), 'data.themes.userErrors'))) {
-            return data_get($response['body']->toArray(), 'data.themes.nodes.0', []);
+        if ($response['errors']) {
+            Log::error('Fetching main theme error: ' . json_encode($response['errors']));
+
+            return [];
         }
 
-        Log::error('Fetching main theme error: '.json_encode(data_get($response['body']->toArray(), 'data.themes.userErrors')));
-
-        return [];
+        return data_get($response['body']->toArray(), 'data.themes.nodes.0', []);
     }
 }

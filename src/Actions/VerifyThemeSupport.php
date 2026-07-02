@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace Osiset\ShopifyApp\Actions;
 
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 use Osiset\ShopifyApp\Contracts\Queries\Shop as IShopQuery;
 use Osiset\ShopifyApp\Contracts\ShopModel;
 use Osiset\ShopifyApp\Objects\Enums\ThemeSupportLevel;
 use Osiset\ShopifyApp\Objects\Values\ShopId;
-use Osiset\ShopifyApp\Util;
 
 final class VerifyThemeSupport
 {
@@ -18,21 +15,11 @@ final class VerifyThemeSupport
 
     private const MAIN_ROLE = 'main';
 
-    private string $cacheInterval;
-
-    private int $cacheDuration;
-
     public function __construct(
         private IShopQuery $shopQuery,
         private FetchMainTheme $fetchMainTheme,
         private FetchThemeAssets $fetchThemeAssets,
     ) {
-        $this->cacheInterval = (string) Str::of(Util::getShopifyConfig('theme_support.cache_interval'))
-            ->plural()
-            ->ucfirst()
-            ->start('add');
-
-        $this->cacheDuration = (int) Util::getShopifyConfig('theme_support.cache_duration');
     }
 
     public function __invoke(ShopId $shopId): int
@@ -40,22 +27,14 @@ final class VerifyThemeSupport
         $shop = $this->shopQuery->getById($shopId);
 
         /** @var array{id: string, name: string} */
-        $mainTheme = Cache::remember(
-            "mainTheme.{$shop->getId()->toNative()}",
-            now()->{$this->cacheInterval}($this->cacheDuration),
-            fn () => $this->fetchMainTheme->handle($shop)
-        );
+        $mainTheme = $this->fetchMainTheme->handle($shop);
 
         if (isset($mainTheme['id'])) {
             /** @var array<int, array{filename: string, content: string}> */
-            $assets = Cache::remember(
-                "assets.{$mainTheme['id']}.{$shop->getId()->toNative()}",
-                now()->{$this->cacheInterval}($this->cacheDuration),
-                fn () => $this->fetchThemeAssets->handle(
-                    shop: $shop,
-                    mainThemeId: $mainTheme['id'],
-                    filenames: self::ASSET_FILE_NAMES
-                )
+            $assets = $this->fetchThemeAssets->handle(
+                shop: $shop,
+                mainThemeId: $mainTheme['id'],
+                filenames: self::ASSET_FILE_NAMES
             );
             $templateMainSections = $this->mainSections(
                 shop: $shop,
@@ -107,14 +86,10 @@ final class VerifyThemeSupport
             }, $assets)
         );
 
-        return Cache::remember(
-            "mainSections.{$mainTheme['id']}.".sha1(implode('|', $filenamesForMainSections)),
-            now()->{$this->cacheInterval}($this->cacheDuration),
-            fn () => $this->fetchThemeAssets->handle(
-                shop: $shop,
-                mainThemeId: $mainTheme['id'],
-                filenames: [...$filenamesForMainSections]
-            )
+        return $this->fetchThemeAssets->handle(
+            shop: $shop,
+            mainThemeId: $mainTheme['id'],
+            filenames: $filenamesForMainSections
         );
     }
 

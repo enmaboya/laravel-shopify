@@ -10,7 +10,7 @@ use Osiset\ShopifyApp\Contracts\ShopModel;
 final class FetchThemeAssets
 {
     /**
-     * @param  array<int, array{filename: string, content: string}>  $filenames
+     * @param  string[]  $filenames
      */
     public function handle(ShopModel $shop, string $mainThemeId, array $filenames): array
     {
@@ -32,18 +32,30 @@ final class FetchThemeAssets
             }
         }', [
             'id' => $mainThemeId,
-            'filenames' => $filenames,
+            'filenames' => array_values($filenames),
         ]);
 
-        if (blank(data_get($response['body']->toArray(), 'data.theme.userErrors'))) {
-            return array_map(fn (array $data) => [
-                'filename' => $data['filename'],
-                'content' => $data['body']['content'] ?? '',
-            ], data_get($response['body']->toArray(), 'data.theme.files.nodes'));
+        if ($response['errors']) {
+            Log::error('Fetching settings data error: '.json_encode($response['errors']));
+
+            return [];
         }
 
-        Log::error('Fetching settings data error: '.json_encode(data_get($response['body']->toArray(), 'data.theme.userErrors')));
+        $nodes = data_get($response['body']->toArray(), 'data.theme.files.nodes', []);
 
-        return [];
+        return array_values(array_filter(array_map(function (array $data) {
+            $content = data_get($data, 'body.content');
+
+            if ($content === null) {
+                Log::warning('Theme file body is not text, skipping: '. data_get($data, 'filename', '?'));
+
+                return null;
+            }
+
+            return [
+                'filename' => $data['filename'],
+                'content' => $content,
+            ];
+        }, $nodes)));
     }
 }
