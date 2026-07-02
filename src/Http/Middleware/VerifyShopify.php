@@ -116,6 +116,10 @@ class VerifyShopify
         $tokenSource = $this->getAccessTokenFromRequest($request);
 
         if ($tokenSource === null) {
+            if (!Util::isMPAApplication() && str_contains($request->path(), 'api/')) {
+                throw new HttpException('Access denied.', Response::HTTP_FORBIDDEN);
+            }
+
             $forbiddenMiddlewareMatches = array_intersect(
                 Util::getShopifyConfig('forbidden_web_middleware_groups'),
                 $request->route()?->middleware() ?? []

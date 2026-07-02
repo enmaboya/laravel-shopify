@@ -385,6 +385,28 @@ class VerifyShopifyTest extends TestCase
         $this->assertStringNotContainsString('/authenticate/token', $result[1]->getTargetUrl());
     }
 
+    public function testSpaApiRequestWithoutTokenReceivesAccessDenied(): void
+    {
+        $this->expectException(HttpException::class);
+        $this->expectExceptionMessage('Access denied.');
+        $this->expectExceptionCode(Response::HTTP_FORBIDDEN);
+
+        factory($this->model)->create(['name' => 'shop-name.myshopify.com']);
+        $this->app['config']->set('shopify-app.frontend_type', 'SPA');
+
+        $currentRequest = Request::instance();
+        $newRequest = $currentRequest->duplicate(
+            query: [],
+            server: [
+                'HTTP_X-Requested-With' => 'XMLHttpRequest',
+                'HTTP_X-Shop-Domain' => 'shop-name.myshopify.com',
+                'REQUEST_URI' => 'api/some/endpoint',
+            ]
+        );
+
+        $this->runMiddleware(VerifyShopify::class, $newRequest);
+    }
+
     public function testAccessingForbiddenMiddlewareRouteFromBrowserReceivedAccessError(): void
     {
         $this->expectException(HttpException::class);
