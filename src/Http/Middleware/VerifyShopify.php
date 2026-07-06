@@ -494,6 +494,30 @@ class VerifyShopify
         return $formatValue($value);
     }
 
+    protected function isApiRoutePath(string $path): bool
+    {
+        $prefixes = Util::getShopifyConfig('api_route_prefixes');
+
+        if (empty($prefixes)) {
+            return false;
+        }
+
+        $path = ltrim($path, '/');
+
+        foreach ($prefixes as $prefix) {
+            $prefix = trim($prefix, '/');
+            if ($prefix === '') {
+                continue;
+            }
+
+            if ($path === $prefix || Str::startsWith($path, $prefix.'/')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Determine if the request is an API request.
      *
@@ -503,7 +527,7 @@ class VerifyShopify
      */
     protected function isApiRequest(Request $request): bool
     {
-        return $request->ajax() || $request->expectsJson() || $request->bearerToken() !== null;
+        return $request->ajax() || $request->expectsJson() || $this->isApiRoutePath($request->path());
     }
 
     /**

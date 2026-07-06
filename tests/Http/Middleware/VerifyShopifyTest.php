@@ -399,7 +399,6 @@ class VerifyShopifyTest extends TestCase
         $newRequest = $currentRequest->duplicate(
             query: [],
             server: [
-                'HTTP_X-Requested-With' => 'XMLHttpRequest',
                 'HTTP_X-Shop-Domain' => 'shop-name.myshopify.com',
                 'REQUEST_URI' => 'api/some/endpoint',
             ]
@@ -420,14 +419,12 @@ class VerifyShopifyTest extends TestCase
         $this->app['config']->set('shopify-app.forbidden_web_middleware_groups', ['api']);
         $this->app['router']->get('/api/some/endpoint', fn () => true)->middleware(['api']);
 
-        // Setup the request
         $currentRequest = Request::instance();
         $newRequest = $currentRequest->duplicate(
             query: [
                 'shop' => 'shop-name.myshopify.com',
             ],
             server: [
-                'HTTP_Authorization' => "Bearer {$this->buildToken()}",
                 'REQUEST_URI' => 'api/some/endpoint',
             ]
         );
