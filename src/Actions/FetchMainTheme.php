@@ -24,7 +24,7 @@ final class FetchMainTheme
         }');
 
         if ($response['errors']) {
-            Log::error('Fetching main theme error: ' . json_encode($response['errors']));
+            Log::error('Fetching main theme error: '.json_encode($response['errors']));
 
             return [];
         }

@@ -54,6 +54,51 @@ class VerifyThemeSupportTest extends TestCase
         $this->assertEquals(ThemeSupportLevel::FULL, $result);
     }
 
+    public function testStoreWithOnlyProductTemplateWithoutAppBlockIsUnsupported(): void
+    {
+        $this->fakeGraphqlApi(['main_theme', 'theme_with_one_asset', 'theme_with_empty_sections']);
+        $shop = factory($this->model)->create();
+        $action = $this->app->make(VerifyThemeSupport::class);
+
+        $result = call_user_func(
+            $action,
+            $shop->getId()
+        );
+
+        $this->assertNotNull($result);
+        $this->assertEquals(ThemeSupportLevel::UNSUPPORTED, $result);
+    }
+
+    public function testStoreWithGraphqlTopLevelErrorsIsUnsupported(): void
+    {
+        $this->fakeGraphqlApi(['empty_with_error_graphql']);
+        $shop = factory($this->model)->create();
+        $action = $this->app->make(VerifyThemeSupport::class);
+
+        $result = call_user_func(
+            $action,
+            $shop->getId()
+        );
+
+        $this->assertNotNull($result);
+        $this->assertEquals(ThemeSupportLevel::UNSUPPORTED, $result);
+    }
+
+    public function testStoreWithTemplateContainingJsonComments(): void
+    {
+        $this->fakeGraphqlApi(['main_theme', 'theme_with_json_comments_asset', 'theme_with_one_section']);
+        $shop = factory($this->model)->create();
+        $action = $this->app->make(VerifyThemeSupport::class);
+
+        $result = call_user_func(
+            $action,
+            $shop->getId()
+        );
+
+        $this->assertNotNull($result);
+        $this->assertEquals(ThemeSupportLevel::FULL, $result);
+    }
+
     public function testStoreWithPartialExtensionSupport(): void
     {
         $shop = factory($this->model)->create();

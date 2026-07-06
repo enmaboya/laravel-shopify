@@ -47,7 +47,7 @@ final class FetchThemeAssets
             $content = data_get($data, 'body.content');
 
             if ($content === null) {
-                Log::warning('Theme file body is not text, skipping: '. data_get($data, 'filename', '?'));
+                Log::warning('Theme file body is not text, skipping: '.data_get($data, 'filename', '?'));
 
                 return null;
             }
