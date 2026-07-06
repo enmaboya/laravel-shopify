@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 use Osiset\ShopifyApp\Exceptions\HttpException;
 use Osiset\ShopifyApp\Exceptions\SignatureVerificationException;
 use Osiset\ShopifyApp\Http\Middleware\VerifyShopify;
+use Osiset\ShopifyApp\Objects\Values\SessionToken;
 use Osiset\ShopifyApp\Test\TestCase;
 
 class VerifyShopifyTest extends TestCase
@@ -385,11 +386,11 @@ class VerifyShopifyTest extends TestCase
         $this->assertStringNotContainsString('/authenticate/token', $result[1]->getTargetUrl());
     }
 
-    public function testSpaApiRequestWithoutTokenReceivesAccessDenied(): void
+    public function testSpaApiRequestWithoutTokenReceivesInvalidTokenError(): void
     {
         $this->expectException(HttpException::class);
-        $this->expectExceptionMessage('Access denied.');
-        $this->expectExceptionCode(Response::HTTP_FORBIDDEN);
+        $this->expectExceptionMessage(SessionToken::EXCEPTION_INVALID);
+        $this->expectExceptionCode(Response::HTTP_BAD_REQUEST);
 
         factory($this->model)->create(['name' => 'shop-name.myshopify.com']);
         $this->app['config']->set('shopify-app.frontend_type', 'SPA');

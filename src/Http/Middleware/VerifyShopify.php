@@ -116,8 +116,8 @@ class VerifyShopify
         $tokenSource = $this->getAccessTokenFromRequest($request);
 
         if ($tokenSource === null) {
-            if (!Util::isMPAApplication() && str_contains($request->path(), 'api/')) {
-                throw new HttpException('Access denied.', Response::HTTP_FORBIDDEN);
+            if (!Util::isMPAApplication() && $this->isApiRequest($request)) {
+                throw new HttpException(SessionToken::EXCEPTION_INVALID, Response::HTTP_BAD_REQUEST);
             }
 
             $forbiddenMiddlewareMatches = array_intersect(
@@ -495,7 +495,7 @@ class VerifyShopify
     }
 
     /**
-     * Determine if the request is AJAX or expects JSON.
+     * Determine if the request is an API request.
      *
      * @param Request $request The request object.
      *
@@ -503,7 +503,7 @@ class VerifyShopify
      */
     protected function isApiRequest(Request $request): bool
     {
-        return $request->ajax() || $request->expectsJson();
+        return $request->ajax() || $request->expectsJson() || $request->bearerToken() !== null;
     }
 
     /**
