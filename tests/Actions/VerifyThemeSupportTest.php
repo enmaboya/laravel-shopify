@@ -39,6 +39,21 @@ class VerifyThemeSupportTest extends TestCase
         $this->assertEquals(ThemeSupportLevel::FULL, $result);
     }
 
+    public function testStoreWithOnlyProductTemplateHasFullSupport(): void
+    {
+        $this->fakeGraphqlApi(['main_theme', 'theme_with_one_asset', 'theme_with_one_section']);
+        $shop = factory($this->model)->create();
+        $action = $this->app->make(VerifyThemeSupport::class);
+
+        $result = call_user_func(
+            $action,
+            $shop->getId()
+        );
+
+        $this->assertNotNull($result);
+        $this->assertEquals(ThemeSupportLevel::FULL, $result);
+    }
+
     public function testStoreWithPartialExtensionSupport(): void
     {
         $shop = factory($this->model)->create();
