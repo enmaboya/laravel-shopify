@@ -26,7 +26,7 @@ class VerifyThemeSupportTest extends TestCase
 
     public function testStoreWithFullExtensionSupport(): void
     {
-        $this->fakeGraphqlApi(['main_theme', 'theme_with_one_asset', 'theme_with_one_section']);
+        $this->fakeGraphqlApi(['main_theme', 'theme_with_two_assets', 'theme_with_two_sections']);
         $shop = factory($this->model)->create();
         $action = $this->app->make(VerifyThemeSupport::class);
 
